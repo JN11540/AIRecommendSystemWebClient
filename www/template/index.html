@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>復健規則列表</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f3;color:#1a1a1a;height:100vh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:#fff;border-bottom:0.5px solid rgba(0,0,0,0.1);flex-shrink:0}
+.topbar h1{font-size:16px;font-weight:500;color:#1a1a1a}
+.new-btn{font-size:13px;padding:7px 16px;border-radius:10px;border:none;background:#185FA5;color:#fff;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.new-btn:hover{background:#1250a0}
+.body{display:flex;flex:1;overflow:hidden}
+
+/* sidebar */
+.sidebar{width:220px;flex-shrink:0;border-right:0.5px solid rgba(0,0,0,0.1);background:#fff;display:flex;flex-direction:column;overflow:hidden}
+.sidebar-title{font-size:11px;font-weight:500;color:#888;letter-spacing:0.05em;text-transform:uppercase;padding:14px 16px 8px}
+.rule-list{flex:1;overflow-y:auto;padding:0 8px 8px}
+.rule-item{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px}
+.rule-item:hover{background:#f5f5f3}
+.rule-item.active{background:#EBF4FD}
+.rule-item-name{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rule-item.active .rule-item-name{color:#185FA5;font-weight:500}
+.del-btn{background:none;border:none;cursor:pointer;color:#ccc;font-size:15px;line-height:1;padding:0 2px;flex-shrink:0}
+.del-btn:hover{color:#E24B4A}
+
+/* main */
+.main{flex:1;overflow-y:auto;padding:24px}
+.empty-hint{color:#bbb;font-size:14px;text-align:center;margin-top:80px}
+
+/* detail */
+.detail-header{margin-bottom:20px}
+.detail-name{font-size:18px;font-weight:500;margin-bottom:4px}
+.detail-meta{font-size:12px;color:#aaa}
+.section-label{font-size:11px;font-weight:500;color:#888;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:10px}
+.cond-card{background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:12px;padding:14px 18px;margin-bottom:10px}
+.cond-priority{font-size:11px;font-weight:500;color:#888;letter-spacing:0.04em;margin-bottom:10px}
+.cond-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cond-col{}
+.badge{display:inline-flex;align-items:center;font-size:12px;padding:4px 12px;border-radius:8px;font-weight:500;margin-bottom:8px;width:100%;justify-content:center;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge.pros{background:#EAF7F2;color:#0F6E56;border:0.5px solid #9FE1CB}
+.badge.cons{background:#FEECEC;color:#A32D2D;border:0.5px solid #F7C1C1}
+.ex-list{display:flex;flex-wrap:wrap;gap:5px}
+.ex-chip{font-size:12px;padding:3px 10px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.1);background:#f0efeb;color:#1a1a1a}
+
+/* detail tabs */
+.detail-tabs{display:flex;gap:6px;margin-bottom:16px}
+.detail-tab{font-size:12px;padding:5px 14px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.15);background:none;cursor:pointer;color:#555;font-family:inherit}
+.detail-tab:hover{background:#f0efeb}
+.detail-tab.active{background:#EBF4FD;color:#185FA5;border-color:rgba(24,95,165,0.35)}
+.detail-panel{display:none}
+.detail-panel.active{display:block}
+
+/* toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-size:13px;padding:10px 20px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity 0.2s;z-index:99}
+.toast.show{opacity:1}
+
+/* modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:16px;padding:24px;width:480px;max-width:calc(100vw - 32px);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.2)}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:16px;color:#1a1a1a;flex-shrink:0}
+.modal-scroll{overflow-y:auto;flex:1;padding-right:4px}
+.modal-field{margin-bottom:12px}
+.modal-label{font-size:12px;color:#555;margin-bottom:4px}
+.modal-input{width:100%;padding:8px 10px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.15);background:#f0efeb;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box}
+.modal-input:focus{border-color:rgba(0,0,0,0.3)}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-shrink:0}
+.btn-cancel{padding:8px 16px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.15);background:none;cursor:pointer;font-size:13px;color:#555;font-family:inherit}
+.btn-confirm{padding:8px 16px;border-radius:8px;border:none;background:#185FA5;color:#fff;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit}
+.patient-card{background:#f0efeb;border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.patient-name{font-size:13px;font-weight:500;margin-bottom:6px}
+.patient-metrics{display:flex;flex-direction:column;gap:3px}
+.patient-metric-row{display:flex;gap:8px;font-size:12px;color:#555}
+.patient-metric-name{flex-shrink:0;color:#888}
+.sec-btn{font-size:13px;padding:7px 16px;border-radius:10px;border:0.5px solid rgba(0,0,0,0.15);background:#fff;color:#555;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.sec-btn:hover{background:#f0efeb}
+.modal-input:disabled{opacity:0.4;cursor:not-allowed}
+.yn-btn{padding:7px 14px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.15);background:none;cursor:pointer;font-size:13px;font-family:inherit;color:#555;white-space:nowrap;flex-shrink:0}
+.yn-btn:hover{background:#f0efeb}
+.yn-btn.yn-sel-yes{background:#EAF7F2;color:#0F6E56;border-color:#9FE1CB;font-weight:500}
+.yn-btn.yn-sel-no{background:#FEECEC;color:#A32D2D;border-color:#F7C1C1;font-weight:500}
+.yn-btn:disabled{opacity:0.3;cursor:not-allowed}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>復健規則列表</h1>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="sec-btn" onclick="openPatientListModal()">個案列表</button>
+    <button class="sec-btn" onclick="openAddPatientModal()">＋ 新增個案</button>
+    <a class="new-btn" href="/editor">＋ 新增規則</a>
+  </div>
+</div>
+
+<div class="body">
+  <aside class="sidebar">
+    <div class="sidebar-title">規則</div>
+    <div class="rule-list" id="rule-list"></div>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="empty-hint">請從左側選擇規則</div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ── 新增個案 Modal ── -->
+<div class="modal-overlay" id="add-patient-modal">
+  <div class="modal-box">
+    <div class="modal-title">新增個案</div>
+    <div class="modal-scroll">
+      <div class="modal-field">
+        <div class="modal-label">姓名</div>
+        <input class="modal-input" id="patient-name-input" type="text" placeholder="請輸入姓名">
+      </div>
+      <div id="patient-metric-fields"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('add-patient-modal')">取消</button>
+      <button class="btn-confirm" onclick="submitAddPatient()">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 編輯個案 Modal ── -->
+<div class="modal-overlay" id="edit-patient-modal">
+  <div class="modal-box">
+    <div class="modal-title">編輯個案</div>
+    <div class="modal-scroll">
+      <div class="modal-field">
+        <div class="modal-label">姓名</div>
+        <input class="modal-input" id="edit-patient-name" type="text" placeholder="請輸入姓名">
+      </div>
+      <div id="edit-metric-fields"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('edit-patient-modal')">取消</button>
+      <button class="btn-confirm" onclick="submitEditPatient()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 個案列表 Modal ── -->
+<div class="modal-overlay" id="patient-list-modal">
+  <div class="modal-box">
+    <div class="modal-title">個案列表</div>
+    <div class="modal-scroll" id="patient-list-content">
+      <div style="color:#bbb;font-size:13px;text-align:center;padding:20px 0">載入中…</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('patient-list-modal')">關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let rules = [];
+let metrics = [], exercises = [];
+let selectedId = null;
+
+async function api(url) {
+  const res = await fetch(url);
+  return res.json();
+}
+
+function byId(arr, id) { return arr.find(x => x.id === id); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// 根據 value 陣列與所在 group 產生可讀標籤
+function condLabel(cond, mName, group) {
+  const v = cond.value;
+  const OPS = ['>=', '>', '<=', '<', '='];
+  if (v.length === 2 && OPS.includes(v[0])) return `${mName} ${v[0]} ${v[1]}`;
+  if (v.length === 2 && !isNaN(Number(v[0])) && !isNaN(Number(v[1]))) {
+    const hi = Math.max(Number(v[0]), Number(v[1]));
+    const lo = Math.min(Number(v[0]), Number(v[1]));
+    return `${hi} >= ${mName} >= ${lo}`;
+  }
+  if (v.length === 1) {
+    const isYesNo = group && group.length === 2 &&
+      group.some(c => c.value.length === 1 && c.value[0] === '1') &&
+      group.some(c => c.value.length === 1 && c.value[0] === '0');
+    if (isYesNo) return `${mName}: ${v[0] === '1' ? '是' : '否'}`;
+    return `${mName} = ${v[0]}`;
+  }
+  return `${mName}: ${v.join(', ')}`;
+}
+
+async function init() {
+  const [rm, re, rr] = await Promise.all([
+    api('/metrics/'), api('/exercises/'), api('/rules/')
+  ]);
+  metrics   = rm.data || [];
+  exercises = re.data || [];
+  rules     = rr.data || [];
+  renderSidebar();
+}
+
+function renderSidebar() {
+  const el = document.getElementById('rule-list');
+  if (!rules.length) {
+    el.innerHTML = '<div style="font-size:13px;color:#bbb;padding:8px 10px">尚無規則</div>';
+    return;
+  }
+  el.innerHTML = rules.map(r => `
+    <div class="rule-item${r.id === selectedId ? ' active' : ''}" id="item-${r.id}" onclick="selectRule(${r.id})">
+      <span class="rule-item-name">${esc(r.name)}</span>
+      <button class="del-btn" onclick="deleteRule(event,${r.id})" title="刪除">×</button>
+    </div>
+  `).join('');
+}
+
+async function selectRule(id) {
+  selectedId = id;
+  renderSidebar();
+  const main = document.getElementById('main');
+  main.innerHTML = '<div class="empty-hint">載入中…</div>';
+  const json = await api(`/rules/${id}`);
+  if (!json.result || !json.data) {
+    main.innerHTML = '<div class="empty-hint">載入失敗</div>';
+    return;
+  }
+  renderDetail(json.data);
+}
+
+function buildTreeSVG(groups) {
+  const k = groups.length;
+  if (!k) return {svg:'', w:0, h:0};
+
+  const Ns = groups.map(g => g.length);
+  const sp = new Array(k+1).fill(1);
+  for (let lv = k-1; lv >= 0; lv--) sp[lv] = Ns[lv] * sp[lv+1];
+  const LEAF_COUNT = sp[0];
+
+  const MIN_LEAF_W = 180;
+  const SVG_W = Math.max(920, LEAF_COUNT * (MIN_LEAF_W + 24) + 24);
+  const SLOT = SVG_W / LEAF_COUNT;
+  const LW = Math.min(240, SLOT * 0.88);
+  const CH = 54, LGAP = 90, SH = 40, SY = 20;
+  const exMap = Object.fromEntries(exercises.map(e => [e.id, e.name]));
+  const PATH_LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  function lcx(i) { return SLOT * (i + 0.5); }
+  function nodeCX(lv, col) { return (lcx(col * sp[lv]) + lcx((col+1) * sp[lv] - 1)) / 2; }
+
+  const condY = [];
+  let y = SY + SH + 40;
+  for (let lv = 0; lv < k; lv++) { condY.push(y); y += CH + LGAP; }
+  const LY = y;
+
+  let s = `<defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <style>
+    .dth{font-size:13px;font-weight:600;fill:#1a1a1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .dts{font-size:11px;fill:#555;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  </style>
+</defs>`;
+
+  const sx = SVG_W / 2;
+  s += `<rect x="${sx-150}" y="${SY}" width="300" height="${SH}" rx="8" fill="#f0efeb" stroke="#ccc" stroke-width="0.5"/>
+<text class="dth" x="${sx}" y="${SY+SH/2}" text-anchor="middle" dominant-baseline="central">病患評估資料輸入</text>`;
+
+  const firstCX = nodeCX(0, 0);
+  s += `<path d="M${sx} ${SY+SH} L${sx} ${condY[0]-15} L${firstCX} ${condY[0]-15} L${firstCX} ${condY[0]}" fill="none" stroke="#aaa" stroke-width="0.5" marker-end="url(#arr)"/>`;
+
+  for (let lv = 0; lv < k; lv++) {
+    const N = Ns[lv];
+    const prefixCount = LEAF_COUNT / sp[lv];
+    const group = groups[lv];
+    const mName = byId(metrics, group[0].metric_id)?.name || `指標${group[0].metric_id}`;
+
+    for (let col = 0; col < prefixCount; col++) {
+      const cx = nodeCX(lv, col), cy = condY[lv];
+      const nw = Math.min(340, sp[lv] * SLOT - 16);
+
+      s += `<rect x="${cx-nw/2}" y="${cy}" width="${nw}" height="${CH}" rx="8" fill="#EBF4FD" stroke="#90C3F0" stroke-width="0.5"/>
+<text class="dth" x="${cx}" y="${cy+18}" text-anchor="middle" dominant-baseline="central">條件 ${lv+1}</text>
+<text class="dts" x="${cx}" y="${cy+38}" text-anchor="middle" dominant-baseline="central">${esc(mName)}</text>`;
+
+      const isLast = lv === k - 1;
+      const nextY = isLast ? LY : condY[lv+1];
+      const midY = cy + CH + (nextY - cy - CH) * 0.42;
+
+      for (let ri = 0; ri < N; ri++) {
+        const cond = group[ri];
+        const childCol = col * N + ri;
+        const childCX = isLast ? lcx(childCol) : nodeCX(lv+1, childCol);
+        const startX = cx - nw/2 + (ri + 0.5) * nw / N;
+        const label = esc(condLabel(cond, mName, group));
+
+        s += `<path d="M${startX} ${cy+CH} L${startX} ${midY} L${childCX} ${midY} L${childCX} ${nextY}" fill="none" stroke="#1D9E75" stroke-width="0.5" marker-end="url(#arr)"/>`;
+        s += `<text class="dts" x="${(startX+childCX)/2}" y="${midY-5}" text-anchor="middle" fill="#1D9E75">${label}</text>`;
+      }
+    }
+  }
+
+  let maxLeafH = 0;
+  for (let i = 0; i < LEAF_COUNT; i++) {
+    const condLines = [];
+    let inter = null;
+    for (let lv = 0; lv < k; lv++) {
+      const ri = Math.floor(i / sp[lv+1]) % Ns[lv];
+      const cond = groups[lv][ri];
+      const mName = byId(metrics, cond.metric_id)?.name || `指標${cond.metric_id}`;
+      condLines.push(condLabel(cond, mName, groups[lv]));
+      const exSet = new Set(cond.exercises || []);
+      inter = inter === null ? exSet : new Set([...inter].filter(id => exSet.has(id)));
+    }
+    const exNames = [...(inter || new Set())].map(id => exMap[id] || `動作${id}`);
+    const SUMH = 26 + k * 14;
+    const EXH = 18 + exNames.length * 14 + 4;
+    maxLeafH = Math.max(maxLeafH, SUMH + 8 + EXH);
+
+    const lx = lcx(i);
+    s += `<rect x="${lx-LW/2}" y="${LY}" width="${LW}" height="${SUMH}" rx="8" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
+<text class="dth" x="${lx}" y="${LY+14}" text-anchor="middle" dominant-baseline="central">路徑 ${PATH_LABELS[i]||i+1}</text>
+${condLines.map((l,ci) => `<text class="dts" x="${lx}" y="${LY+26+ci*14}" text-anchor="middle" dominant-baseline="central">${esc(l)}</text>`).join('')}`;
+
+    const exY = LY + SUMH + 8;
+    s += `<rect x="${lx-LW/2}" y="${exY}" width="${LW}" height="${EXH}" rx="6" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
+<text class="dts" x="${lx}" y="${exY+12}" text-anchor="middle" fill="#0F6E56" font-weight="600">推薦動作</text>
+${exNames.map((n,ei) => `<text class="dts" x="${lx}" y="${exY+26+ei*14}" text-anchor="middle" fill="#0F6E56">${esc(n)}</text>`).join('')}`;
+  }
+
+  return {svg:s, w:SVG_W, h:LY+maxLeafH+24};
+}
+
+function renderDetail(rule) {
+  const conds = rule.conditions || [];
+
+  // Group by metric_id; sort groups by min id (priority)
+  const groupMap = new Map();
+  for (const c of conds) {
+    if (!groupMap.has(c.metric_id)) groupMap.set(c.metric_id, []);
+    groupMap.get(c.metric_id).push(c);
+  }
+  const groups = [...groupMap.values()]
+    .map(g => g.sort((a, b) => a.id - b.id))
+    .sort((a, b) => a[0].id - b[0].id);
+
+  const ORDINALS = ['第一','第二','第三','第四','第五','第六','第七','第八'];
+
+  function exChips(ids) {
+    if (!ids || !ids.length) return '<span style="color:#bbb;font-size:12px">無</span>';
+    return ids.map(eid => {
+      const ex = byId(exercises, eid);
+      return `<span class="ex-chip">${ex ? esc(ex.name) : `動作 ${eid}`}</span>`;
+    }).join('');
+  }
+
+  const condsHtml = groups.length ? groups.map((g, gi) => {
+    const metric = byId(metrics, g[0].metric_id);
+    const mName = metric ? esc(metric.name) : `指標 ${g[0].metric_id}`;
+    const N = g.length;
+    const cols = g.map(c => `
+        <div class="cond-col">
+          <span class="badge pros">${esc(condLabel(c, metric ? metric.name : `指標${c.metric_id}`, g))}</span>
+          <div class="ex-list">${exChips(c.exercises)}</div>
+        </div>`).join('');
+
+    return `
+      <div class="cond-card">
+        <div class="cond-priority">${ORDINALS[gi] || `第${gi+1}`}條件 · ${mName}</div>
+        <div class="cond-cols" style="grid-template-columns:repeat(${N},1fr)">${cols}</div>
+      </div>
+    `;
+  }).join('') : '<div style="color:#bbb;font-size:13px">此規則尚無條件</div>';
+
+  const {svg, w, h} = buildTreeSVG(groups);
+  const treePanel = svg
+    ? `<div style="overflow-x:auto;background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:12px;padding:16px">
+        <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${svg}</svg>
+       </div>`
+    : '<div style="color:#bbb;font-size:13px">尚無條件，無法產生決策樹</div>';
+
+  document.getElementById('main').innerHTML = `
+    <div class="detail-header">
+      <div class="detail-name">${esc(rule.name)}</div>
+      <div class="detail-meta">ID: ${rule.id} · 共 ${groups.length} 個條件</div>
+    </div>
+    <div class="detail-tabs">
+      <button class="detail-tab active" onclick="switchTab('tree')">決策樹</button>
+      <button class="detail-tab" onclick="switchTab('conds')">條件列表</button>
+      <button class="detail-tab" onclick="switchTab('patients',${rule.id})">個案推薦動作</button>
+    </div>
+    <div class="detail-panel active" id="panel-tree">${treePanel}</div>
+    <div class="detail-panel" id="panel-conds">${condsHtml}</div>
+    <div class="detail-panel" id="panel-patients"><div style="color:#bbb;font-size:13px;text-align:center;padding:40px 0">切換至此頁即自動載入</div></div>
+  `;
+}
+
+async function deleteRule(e, id) {
+  e.stopPropagation();
+  if (!confirm('確定刪除此規則？')) return;
+  const res = await fetch(`/rules/${id}`, { method: 'DELETE' });
+  const json = await res.json();
+  if (!json.result) { showToast('刪除失敗'); return; }
+  rules = rules.filter(r => r.id !== id);
+  if (selectedId === id) {
+    selectedId = null;
+    document.getElementById('main').innerHTML = '<div class="empty-hint">請從左側選擇規則</div>';
+  }
+  renderSidebar();
+  showToast('規則已刪除');
+}
+
+function switchTab(tab, ruleId) {
+  document.querySelectorAll('.detail-tab').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes(`'${tab}'`)));
+  ['tree','conds','patients'].forEach(p => {
+    document.getElementById(`panel-${p}`)?.classList.toggle('active', p === tab);
+  });
+  if (tab === 'patients' && ruleId) loadPatientRec(ruleId);
+}
+
+async function loadPatientRec(ruleId) {
+  const panel = document.getElementById('panel-patients');
+  panel.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;padding:40px 0">載入中…</div>';
+
+  const sortedMetrics = [...metrics].sort((a, b) => a.id - b.id);
+
+  const pJson = await fetch('/patients/').then(r => r.json());
+  const patients = pJson.data || [];
+  if (!patients.length) {
+    panel.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;padding:40px 0">尚無個案</div>';
+    return;
+  }
+
+  // 並行取得每個個案的推薦結果
+  const recResults = await Promise.all(patients.map(p =>
+    fetch('/rules/recommend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rule_id: ruleId, patient_id: p.id }),
+    }).then(r => r.json())
+  ));
+
+  panel.innerHTML = patients.map((p, idx) => {
+    const rec = recResults[idx];
+    const recIds = rec.result ? (rec.data?.recommended || []) : [];
+    const recChips = recIds.length
+      ? recIds.map(eid => {
+          const ex = byId(exercises, eid);
+          return `<span class="ex-chip">${ex ? esc(ex.name) : `動作${eid}`}</span>`;
+        }).join('')
+      : '<span style="color:#bbb;font-size:12px">無推薦動作</span>';
+
+    const metricRows = sortedMetrics.map((m, i) => {
+      const raw = p.metric_values[i] ?? '—';
+      const display = raw === '1' ? '是' : raw === '0' ? '否' : raw;
+      return `<div class="patient-metric-row">
+        <span class="patient-metric-name">${esc(m.name)}</span>
+        <span>${esc(display)}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="patient-card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span class="patient-name" style="margin-bottom:0">${esc(p.name)}</span>
+        <span style="font-size:11px;color:#aaa">ID: ${p.id}</span>
+      </div>
+      <div class="patient-metrics" style="margin-bottom:10px">${metricRows}</div>
+      <div style="font-size:11px;font-weight:500;color:#888;letter-spacing:0.04em;margin-bottom:6px">推薦動作</div>
+      <div class="ex-list">${recChips}</div>
+    </div>`;
+  }).join('');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+let patientYesNo = []; // per-metric: null | '1' | '0'
+
+function openAddPatientModal() {
+  document.getElementById('patient-name-input').value = '';
+  patientYesNo = metrics.map(() => null);
+  const fields = document.getElementById('patient-metric-fields');
+  fields.innerHTML = metrics.map((m, i) => `
+    <div class="modal-field">
+      <div class="modal-label">${esc(m.name)}</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input class="modal-input" id="pmet-val-${i}" type="text" placeholder="請輸入數值" style="flex:1" oninput="onMetricValInput(${i})">
+        <button class="yn-btn" id="pmet-yes-${i}" onclick="onMetricYesNo(${i},'1')">是</button>
+        <button class="yn-btn" id="pmet-no-${i}" onclick="onMetricYesNo(${i},'0')">否</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('add-patient-modal').classList.add('show');
+}
+
+function onMetricValInput(i) {
+  const hasVal = document.getElementById(`pmet-val-${i}`).value.trim() !== '';
+  if (hasVal) {
+    patientYesNo[i] = null;
+    _syncYnBtns(i);
+  }
+}
+
+function onMetricYesNo(i, val) {
+  patientYesNo[i] = patientYesNo[i] === val ? null : val;
+  const inp = document.getElementById(`pmet-val-${i}`);
+  if (patientYesNo[i] !== null) inp.value = '';
+  inp.disabled = patientYesNo[i] !== null;
+  _syncYnBtns(i);
+}
+
+function _syncYnBtns(i) {
+  const yBtn = document.getElementById(`pmet-yes-${i}`);
+  const nBtn = document.getElementById(`pmet-no-${i}`);
+  const v = patientYesNo[i];
+  yBtn.className = 'yn-btn' + (v === '1' ? ' yn-sel-yes' : '');
+  nBtn.className = 'yn-btn' + (v === '0' ? ' yn-sel-no' : '');
+  const hasVal = document.getElementById(`pmet-val-${i}`).value.trim() !== '';
+  yBtn.disabled = hasVal;
+  nBtn.disabled = hasVal;
+}
+
+async function submitAddPatient() {
+  const name = document.getElementById('patient-name-input').value.trim();
+  if (!name) { alert('請輸入姓名'); return; }
+  const metric_values = [];
+  for (let i = 0; i < metrics.length; i++) {
+    const numVal = (document.getElementById(`pmet-val-${i}`)?.value || '').trim();
+    const ynVal = patientYesNo[i];
+    if (!numVal && ynVal === null) {
+      alert(`【${metrics[i].name}】請填入數值或選擇是／否`);
+      return;
+    }
+    metric_values.push(ynVal !== null ? ynVal : numVal);
+  }
+  const res = await fetch('/patients/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, metric_values }),
+  });
+  const json = await res.json();
+  if (!json.result) { alert(`新增失敗：${json.message}`); return; }
+  closeModal('add-patient-modal');
+  showToast('個案已新增');
+}
+
+async function openPatientListModal() {
+  document.getElementById('patient-list-modal').classList.add('show');
+  const content = document.getElementById('patient-list-content');
+  content.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;padding:20px 0">載入中…</div>';
+  const json = await fetch('/patients/').then(r => r.json());
+  if (!json.result) {
+    content.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;padding:20px 0">載入失敗</div>';
+    return;
+  }
+  const patients = json.data || [];
+  if (!patients.length) {
+    content.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;padding:20px 0">尚無個案</div>';
+    return;
+  }
+  content.innerHTML = patients.map(p => {
+    const rows = p.metric_values.map((v, i) => {
+      const mName = metrics[i]?.name || `指標${i+1}`;
+      const display = v === '1' ? '是' : v === '0' ? '否' : v;
+      return `<div class="patient-metric-row"><span class="patient-metric-name">${esc(mName)}</span><span>${esc(display)}</span></div>`;
+    }).join('');
+    return `<div class="patient-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span class="patient-name" style="margin-bottom:0">${esc(p.name)}</span>
+        <div style="display:flex;gap:6px">
+          <button onclick="openEditPatient(${p.id})" style="font-size:12px;padding:3px 10px;border-radius:7px;border:0.5px solid rgba(0,0,0,0.15);background:none;cursor:pointer;color:#555;font-family:inherit" onmouseover="this.style.background='#f0efeb'" onmouseout="this.style.background='none'">編輯</button>
+          <button onclick="deletePatient(${p.id})" style="font-size:12px;padding:3px 10px;border-radius:7px;border:0.5px solid rgba(226,75,74,0.25);background:none;cursor:pointer;color:#E24B4A;font-family:inherit" onmouseover="this.style.background='#FEECEC'" onmouseout="this.style.background='none'">刪除</button>
+        </div>
+      </div>
+      <div class="patient-metrics">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+let editPatientId = null;
+let editPatientYesNo = [];
+
+async function openEditPatient(id) {
+  const json = await fetch(`/patients/${id}`).then(r => r.json());
+  if (!json.result) { alert('載入失敗'); return; }
+  const p = json.data;
+  editPatientId = id;
+
+  document.getElementById('edit-patient-name').value = p.name;
+
+  const sortedMetrics = [...metrics].sort((a, b) => a.id - b.id);
+  editPatientYesNo = sortedMetrics.map((_, i) => {
+    const v = p.metric_values[i];
+    return (v === '1' || v === '0') ? v : null;
+  });
+
+  document.getElementById('edit-metric-fields').innerHTML = sortedMetrics.map((m, i) => {
+    const raw = p.metric_values[i] ?? '';
+    const isYN = raw === '1' || raw === '0';
+    const numVal = isYN ? '' : raw;
+    return `<div class="modal-field">
+      <div class="modal-label">${esc(m.name)}</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input class="modal-input" id="epmet-val-${i}" type="text" placeholder="請輸入數值" style="flex:1"
+          value="${esc(numVal)}" ${isYN ? 'disabled' : ''} oninput="onEditMetricValInput(${i})">
+        <button class="yn-btn${raw === '1' ? ' yn-sel-yes' : ''}" id="epmet-yes-${i}" onclick="onEditMetricYesNo(${i},'1')" ${!isYN && numVal ? 'disabled' : ''}>是</button>
+        <button class="yn-btn${raw === '0' ? ' yn-sel-no' : ''}" id="epmet-no-${i}" onclick="onEditMetricYesNo(${i},'0')" ${!isYN && numVal ? 'disabled' : ''}>否</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  closeModal('patient-list-modal');
+  document.getElementById('edit-patient-modal').classList.add('show');
+}
+
+function onEditMetricValInput(i) {
+  const hasVal = document.getElementById(`epmet-val-${i}`).value.trim() !== '';
+  if (hasVal) { editPatientYesNo[i] = null; _syncEditYnBtns(i); }
+}
+
+function onEditMetricYesNo(i, val) {
+  editPatientYesNo[i] = editPatientYesNo[i] === val ? null : val;
+  const inp = document.getElementById(`epmet-val-${i}`);
+  if (editPatientYesNo[i] !== null) inp.value = '';
+  inp.disabled = editPatientYesNo[i] !== null;
+  _syncEditYnBtns(i);
+}
+
+function _syncEditYnBtns(i) {
+  const yBtn = document.getElementById(`epmet-yes-${i}`);
+  const nBtn = document.getElementById(`epmet-no-${i}`);
+  const v = editPatientYesNo[i];
+  yBtn.className = 'yn-btn' + (v === '1' ? ' yn-sel-yes' : '');
+  nBtn.className = 'yn-btn' + (v === '0' ? ' yn-sel-no' : '');
+  const hasVal = document.getElementById(`epmet-val-${i}`).value.trim() !== '';
+  yBtn.disabled = hasVal;
+  nBtn.disabled = hasVal;
+}
+
+async function submitEditPatient() {
+  const name = document.getElementById('edit-patient-name').value.trim();
+  if (!name) { alert('請輸入姓名'); return; }
+  const sortedMetrics = [...metrics].sort((a, b) => a.id - b.id);
+  const metric_values = [];
+  for (let i = 0; i < sortedMetrics.length; i++) {
+    const numVal = (document.getElementById(`epmet-val-${i}`)?.value || '').trim();
+    const ynVal = editPatientYesNo[i];
+    if (!numVal && ynVal === null) {
+      alert(`【${sortedMetrics[i].name}】請填入數值或選擇是／否`);
+      return;
+    }
+    metric_values.push(ynVal !== null ? ynVal : numVal);
+  }
+  const res = await fetch(`/patients/${editPatientId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, metric_values }),
+  });
+  const json = await res.json();
+  if (!json.result) { alert(`儲存失敗：${json.message}`); return; }
+  closeModal('edit-patient-modal');
+  showToast('個案已更新');
+  openPatientListModal();
+}
+
+async function deletePatient(id) {
+  if (!confirm('確定刪除此個案？')) return;
+  const res = await fetch(`/patients/${id}`, { method: 'DELETE' });
+  const json = await res.json();
+  if (!json.result) { showToast('刪除失敗'); return; }
+  showToast('個案已刪除');
+  openPatientListModal();
+}
+
+init();
+</script>
+</body>
+</html>

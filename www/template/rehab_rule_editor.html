@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>復健動作規則編輯器</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f3;color:#1a1a1a;padding:24px 16px;min-height:100vh}
+.container{max-width:1060px;margin:0 auto}
+h1{font-size:18px;font-weight:500;margin-bottom:20px;color:#1a1a1a}
+.layout{display:grid;grid-template-columns:210px 1fr;gap:16px;align-items:start}
+.sidebar{position:sticky;top:24px;min-width:0}
+.layout>main{min-width:0}
+.exercise-panel{position:sticky;top:24px;min-width:0}
+.exercise-panel-title{font-size:11px;font-weight:500;color:#888;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:8px}
+.exercise-grid{display:grid;grid-template-columns:1fr;gap:8px;max-height:340px;overflow-y:auto}
+.exercise-card{background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:10px;overflow:hidden;cursor:default}
+.exercise-card img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#f0efeb}
+.exercise-card p{font-size:10px;color:#555;padding:4px 6px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar .add-chip-row{flex-direction:column;align-items:stretch}
+.sidebar .add-chip-row input{width:100%}
+.sidebar .add-chip-btn{justify-content:center}
+.sidebar-tabs{display:flex;gap:4px;margin-bottom:8px}
+.sidebar-tab{flex:1;font-size:11px;padding:5px 2px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.15);background:none;cursor:pointer;color:#555;font-family:inherit;white-space:nowrap;min-width:0}
+.sidebar-tab:hover{background:#f0efeb}
+.sidebar-tab.active{background:#EBF4FD;color:#185FA5;border-color:rgba(24,95,165,0.35)}
+.sidebar-panel{display:none}
+.sidebar-panel.active{display:block}
+select,input[type=text]{background:#f0efeb;border:0.5px solid rgba(0,0,0,0.12);border-radius:8px;color:#1a1a1a;padding:5px 8px;font-size:13px;font-family:inherit;outline:none}
+select:focus,input[type=text]:focus{border-color:rgba(0,0,0,0.3)}
+input[type=text]{width:72px}
+.section-title{font-size:11px;font-weight:500;color:#888;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:8px}
+.config-card{background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:12px;padding:1rem 1.25rem;margin-bottom:12px}
+.chip-list{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 10px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.1);background:#f0efeb;color:#1a1a1a}
+.chip button{background:none;border:none;cursor:pointer;font-size:13px;line-height:1;padding:0;color:#888;opacity:0.7}
+.chip button:hover{opacity:1;color:#E24B4A}
+.add-chip-row{display:flex;gap:6px;align-items:center}
+.add-chip-row input{flex:1;width:auto}
+.add-chip-btn{font-size:12px;padding:4px 10px;border:0.5px solid rgba(0,0,0,0.15);border-radius:8px;background:none;cursor:pointer;color:#555;white-space:nowrap;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
+.add-chip-btn:hover{background:#f0efeb}
+.rule-card{background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:12px;padding:1rem 1.25rem;margin-bottom:12px}
+.rule-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.priority-badge{font-size:12px;font-weight:500;padding:3px 10px;border-radius:8px;background:#EBF4FD;color:#185FA5;white-space:nowrap}
+.icon-btn{background:none;border:none;cursor:pointer;color:#aaa;font-size:16px;line-height:1;padding:0 2px;font-family:inherit}
+.icon-btn:hover{color:#E24B4A}
+.ml-auto{margin-left:auto}
+.cond-row{padding:10px 12px;border-radius:8px;margin-bottom:6px;border:0.5px solid rgba(0,0,0,0.1)}
+.cond-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tag{display:inline-flex;align-items:center;gap:3px;font-size:12px;padding:2px 8px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.1);background:#fff;color:#1a1a1a}
+.tag.t-rec{background:#EAF7F2;color:#0F6E56;border-color:#9FE1CB}
+.tag.t-norec{background:#FEECEC;color:#A32D2D;border-color:#F7C1C1}
+.tag button{background:none;border:none;cursor:pointer;font-size:13px;line-height:1;padding:0;color:inherit;opacity:0.7}
+.tag button:hover{opacity:1}
+.add-cond-btn{font-size:12px;padding:4px 10px;border:0.5px dashed rgba(0,0,0,0.2);border-radius:8px;background:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-family:inherit}
+.add-cond-btn:hover{background:#f0efeb}
+.del-cond-btn{width:100%;margin-top:8px;padding:7px;font-size:12px;border-radius:8px;border:0.5px solid rgba(226,75,74,0.25);background:none;cursor:pointer;color:#E24B4A;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px}
+.del-cond-btn:hover{background:#FEECEC}
+.action-checklist{width:100%;margin-top:8px;border:0.5px solid rgba(0,0,0,0.12);border-radius:8px;background:#fafaf9;padding:4px}
+.action-checklist label{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px;border-radius:6px;cursor:pointer;user-select:none}
+.action-checklist label:hover{background:#f0efeb}
+.action-checklist input[type=checkbox]{accent-color:#185FA5;width:14px;height:14px;flex-shrink:0;cursor:pointer}
+.cond-cases{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.case-col{min-width:0}
+.case-label{font-size:12px;font-weight:500;letter-spacing:0.02em;display:block;padding:6px 12px;border-radius:8px;text-align:center}
+.case-label.pros{background:#EAF7F2;color:#0F6E56;border:0.5px solid #9FE1CB}
+.case-label.cons{background:#FEECEC;color:#A32D2D;border:0.5px solid #F7C1C1}
+.confirm-btn{font-size:12px;padding:5px 12px;border-radius:8px;border:none;background:#185FA5;color:#fff;cursor:pointer;font-family:inherit;white-space:nowrap}
+.confirm-btn:hover{background:#1250a0}
+.op-readonly{background:#f0efeb;border:0.5px solid rgba(0,0,0,0.12);border-radius:8px;color:#555;padding:5px 8px;font-size:13px;display:block;width:100%;margin-bottom:6px}
+.cond-tags-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.cond-tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px 4px 12px;border-radius:8px;border:0.5px solid rgba(24,95,165,0.35);background:#EBF4FD;color:#185FA5;white-space:nowrap}
+.cond-tag:hover{background:#d0e8f8}
+.cond-tag.active{background:#185FA5;color:#fff;border-color:#185FA5}
+.cond-tag-label{cursor:pointer}
+.cond-tag-del{background:none;border:none;cursor:pointer;font-size:14px;line-height:1;padding:0;color:inherit;opacity:0.6;font-family:inherit}
+.cond-tag-del:hover{opacity:1}
+.rule-name-input{width:100%;margin-bottom:10px;padding:14px 16px;font-size:16px;font-weight:500;border-radius:10px;border:0.5px solid rgba(0,0,0,0.12);background:#f0efeb;outline:none;font-family:inherit}
+.rule-name-input:focus{border-color:rgba(0,0,0,0.3)}
+.add-rule-btn{width:100%;padding:10px;border:0.5px dashed rgba(0,0,0,0.2);border-radius:12px;background:none;cursor:pointer;color:#888;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;font-family:inherit}
+.add-rule-btn:hover{background:#f0efeb}
+.gen-btn{width:100%;margin-top:14px;padding:11px;font-size:14px;font-weight:500;border-radius:8px;border:none;background:#EBF4FD;color:#185FA5;cursor:pointer;font-family:inherit}
+.gen-btn:hover{background:#d0e8f8}
+.gen-btn:disabled{opacity:0.4;cursor:not-allowed}
+.result-box{background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:12px;padding:1rem 1.25rem;margin-top:14px;display:none}
+.result-box h3{font-size:13px;font-weight:500;margin-bottom:10px;color:#555}
+.result-box pre{font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:#1a1a1a;font-family:inherit}
+@media(max-width:600px){.layout{grid-template-columns:1fr}.sidebar{position:static}}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:16px;padding:24px;width:440px;max-width:calc(100vw - 32px);box-shadow:0 8px 32px rgba(0,0,0,0.2)}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:16px;color:#1a1a1a}
+.modal-type-btn{padding:10px 8px;border-radius:10px;border:0.5px solid rgba(0,0,0,0.15);background:none;cursor:pointer;font-size:13px;color:#555;font-family:inherit}
+.modal-type-btn:hover{background:#f0efeb}
+.modal-type-btn.sel{background:#EBF4FD;color:#185FA5;border-color:rgba(24,95,165,0.35);font-weight:500}
+.modal-input{width:100%;padding:8px 10px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.15);background:#f0efeb;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box}
+.modal-input:focus{border-color:rgba(0,0,0,0.3)}
+.modal-ro{background:#f0efeb;border:0.5px solid rgba(0,0,0,0.12);border-radius:8px;color:#555;padding:8px 10px;font-size:13px;text-align:center}
+.yesno-pick{flex:1;padding:12px;border-radius:10px;border:0.5px solid rgba(0,0,0,0.15);background:none;cursor:pointer;font-size:14px;font-weight:500;font-family:inherit}
+.yesno-pick.yes-sel{background:#EAF7F2;color:#0F6E56;border-color:#9FE1CB}
+.yesno-pick.no-sel{background:#FEECEC;color:#A32D2D;border-color:#F7C1C1}
+</style>
+</head>
+<body>
+<div class="container">
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+  <a href="/" style="display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#555;text-decoration:none;padding:6px 12px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.15);background:#fff;font-family:inherit" onmouseover="this.style.background='#f0efeb'" onmouseout="this.style.background='#fff'">← 返回首頁</a>
+  <h1 style="margin-bottom:0">復健動作規則編輯器</h1>
+</div>
+
+<div class="layout">
+  <!-- 左側欄 -->
+  <aside class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="sidebar-tab" data-tab="metrics" onclick="setSidebarTab('metrics')">評估指標</button>
+      <button class="sidebar-tab active" data-tab="exercises" onclick="setSidebarTab('exercises')">動作列表</button>
+    </div>
+    <div class="config-card sidebar-panel" id="panel-metrics">
+      <div class="chip-list" id="metric-chips"></div>
+      <div class="add-chip-row">
+        <input type="text" id="new-metric-input" placeholder="新增指標...">
+        <button class="add-chip-btn" onclick="addMetric()">＋ 新增</button>
+      </div>
+    </div>
+    <div class="config-card sidebar-panel active" id="panel-exercises" style="padding:0.75rem 1rem">
+      <div class="exercise-grid" id="exercise-grid"></div>
+    </div>
+  </aside>
+
+  <!-- 中央主內容 -->
+  <main>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <input type="text" id="rule-name-input" class="rule-name-input" placeholder="規則名稱" style="margin-bottom:0;flex:1;min-width:120px">
+      <button class="gen-btn" onclick="showDecisionTree()" style="margin-top:0;width:auto;padding:10px 16px">產生決策樹說明</button>
+      <button id="save-btn" class="gen-btn" onclick="generate()" style="margin-top:0;width:auto;padding:10px 16px;background:#EAF7F2;color:#0F6E56">儲存規則</button>
+    </div>
+    <div id="cond-tags"></div>
+    <div id="rules"></div>
+    <div class="result-box" id="result-box">
+      <h3>決策樹說明</h3>
+      <pre id="result-text"></pre>
+    </div>
+  </main>
+
+</div>
+</div>
+
+<!-- 決策樹 Modal -->
+<div id="tree-modal" onclick="if(event.target===this)this.style.display='none'"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto">
+  <div style="background:#f5f5f3;border-radius:16px;padding:24px;position:relative;max-width:95vw;width:fit-content;min-width:400px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span style="font-size:15px;font-weight:500;color:#555">復健動作決策樹</span>
+      <button onclick="document.getElementById('tree-modal').style.display='none'"
+        style="background:none;border:none;cursor:pointer;font-size:18px;color:#aaa;line-height:1;padding:0 4px">✕</button>
+    </div>
+    <div style="overflow-x:auto" id="tree-svg-container"></div>
+  </div>
+</div>
+
+<!-- ── 確認儲存 Modal ── -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box" style="width:360px">
+    <div class="modal-title">確認儲存</div>
+    <p style="font-size:13px;color:#555;margin-bottom:20px">確定要儲存此規則嗎？</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="document.getElementById('confirm-modal').classList.remove('show')" style="padding:8px 16px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.15);background:none;cursor:pointer;font-size:13px;color:#555;font-family:inherit">取消</button>
+      <button onclick="doSave()" style="padding:8px 16px;border-radius:8px;border:none;background:#0F6E56;color:#fff;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit">確定儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 新增範圍 Modal ── -->
+<div class="modal-overlay" id="range-modal">
+  <div class="modal-box">
+    <div class="modal-title">新增範圍</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px">
+      <button class="modal-type-btn" id="mbt-range"  onclick="selectModalType('range')">最大最小值</button>
+      <button class="modal-type-btn" id="mbt-single" onclick="selectModalType('single')">填入值</button>
+      <button class="modal-type-btn" id="mbt-yesno"  onclick="selectModalType('yesno')">是或否</button>
+    </div>
+    <div id="mp-range" style="display:none;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <input class="modal-input" id="m-max" type="text" placeholder="最大值" style="flex:1">
+        <span class="modal-ro" style="padding:8px 10px">&gt;=</span>
+        <span class="modal-ro" id="m-metric-name" style="flex:2;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">指標</span>
+        <span class="modal-ro" style="padding:8px 10px">&gt;=</span>
+        <input class="modal-input" id="m-min" type="text" placeholder="最小值" style="flex:1">
+      </div>
+    </div>
+    <div id="mp-single" style="display:none;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="modal-ro" id="m-metric-name2" style="flex:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">指標</span>
+        <span class="modal-ro" style="padding:8px 14px">&gt;=</span>
+        <input class="modal-input" id="m-val" type="text" placeholder="值" style="flex:1">
+      </div>
+    </div>
+    <div id="mp-yesno" style="display:none;gap:12px;align-items:center">
+      <span class="modal-ro" style="flex:1;text-align:center">是</span>
+      <span style="color:#aaa;font-size:13px">+</span>
+      <span class="modal-ro" style="flex:1;text-align:center">否</span>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+      <button onclick="closeModal()" style="padding:8px 16px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.15);background:none;cursor:pointer;font-size:13px;color:#555;font-family:inherit">取消</button>
+      <button onclick="confirmModal()" style="padding:8px 16px;border-radius:8px;border:none;background:#185FA5;color:#fff;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit">確定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// [{id, name}, ...]  — loaded from API
+let exercises=[];
+let metrics=[];
+let rules=[];
+let rid=1,cidCounter=1;
+let activeCondId=null;
+
+let rangeIdCnt=1;
+let modalRuleId=null, modalType=null, modalYesNo=null;
+function newRange(type,values){return{id:rangeIdCnt++,metricId:null,type,values,exercises:[]};}
+
+
+// --- API helper ---
+async function api(path,opts={}){
+  const res=await fetch(path,{headers:{'Content-Type':'application/json'},...opts});
+  return res.json();
+}
+
+// --- Load on startup ---
+async function loadAll(){
+  const [eRes,mRes]=await Promise.all([api('/exercises/'),api('/metrics/')]);
+  if(eRes.result) exercises=eRes.data;
+  if(mRes.result) metrics=mRes.data;
+  renderChips();
+  renderExercises();
+  addRule();
+}
+
+function renderExercises(){
+  document.getElementById('exercise-grid').innerHTML=exercises.map(e=>
+    `<div class="exercise-card">
+      <img src="/static/img/${e.id}.png" alt="${e.name}" loading="lazy">
+      <p>${e.id}. ${e.name}</p>
+    </div>`
+  ).join('');
+}
+
+// --- Metric API ---
+async function addMetric(){
+  const inp=document.getElementById('new-metric-input');
+  const v=inp.value.trim();
+  if(!v) return;
+  const json=await api('/metrics/',{method:'POST',body:JSON.stringify({name:v})});
+  if(json.result){
+    metrics.push(json.data);
+    inp.value='';
+    renderChips();
+    renderRules();
+  }
+}
+// --- Sidebar tab ---
+function setSidebarTab(tab){
+  document.querySelectorAll('.sidebar-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelectorAll('.sidebar-panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+tab));
+}
+
+// --- Chip rendering ---
+function renderChips(){
+  document.getElementById('metric-chips').innerHTML=metrics.map(m=>
+    `<span class="chip">${m.name}</span>`
+  ).join('');
+}
+
+// --- Modal ---
+function openModal(ruleId){
+  modalRuleId=ruleId; modalType=null; modalYesNo=null;
+  ['range','single','yesno'].forEach(t=>{
+    document.getElementById('mbt-'+t).classList.remove('sel');
+    document.getElementById('mp-'+t).style.display='none';
+  });
+  document.getElementById('m-max').value='';
+  document.getElementById('m-min').value='';
+  document.getElementById('m-val').value='';
+  const mName=metrics.find(m=>m.id===rules.find(r=>r.id===ruleId)?.metricId)?.name||'指標';
+  document.getElementById('m-metric-name').textContent=mName;
+  document.getElementById('m-metric-name2').textContent=mName;
+
+  // 鎖定類型：已有 range 則禁用其他選項
+  const rule=rules.find(r=>r.id===ruleId);
+  const firstType=rule.ranges[0]?.type??null;
+  const lockedGroup=firstType==='range'?'range':
+    (firstType==='single-gte'||firstType==='single-lt')?'single':
+    firstType==='yesno'?'yesno':null;
+  ['range','single','yesno'].forEach(t=>{
+    const btn=document.getElementById('mbt-'+t);
+    const locked=lockedGroup&&t!==lockedGroup;
+    btn.disabled=locked;
+    btn.style.opacity=locked?'0.3':'';
+    btn.style.cursor=locked?'not-allowed':'';
+  });
+
+  document.getElementById('range-modal').classList.add('show');
+}
+function closeModal(){document.getElementById('range-modal').classList.remove('show');}
+function selectModalType(t){
+  modalType=t;
+  ['range','single','yesno'].forEach(x=>{
+    document.getElementById('mbt-'+x).classList.toggle('sel',x===t);
+    const p=document.getElementById('mp-'+x);
+    p.style.display=(x===t)?(t==='yesno'?'flex':'flex'):'none';
+  });
+}
+
+function confirmModal(){
+  if(!modalType){alert('請選擇類型');return;}
+  const rule=rules.find(r=>r.id===modalRuleId);
+  let values=[];
+  if(modalType==='range'){
+    const mx=document.getElementById('m-max').value.trim();
+    const mn=document.getElementById('m-min').value.trim();
+    if(!mx||!mn){alert('請填入最大值與最小值');return;}
+    values=[mx,mn];
+  } else if(modalType==='single'){
+    const v=document.getElementById('m-val').value.trim();
+    if(!v){alert('請填入值');return;}
+    const rg1=newRange('single-gte',[v]); rg1.metricId=rule.metricId; rule.ranges.push(rg1);
+    const rg2=newRange('single-lt',[v]);  rg2.metricId=rule.metricId; rule.ranges.push(rg2);
+    closeModal(); renderRules(); return;
+  } else {
+    const rg1=newRange('yesno',['1']); rg1.metricId=rule.metricId; rule.ranges.push(rg1);
+    const rg2=newRange('yesno',['0']); rg2.metricId=rule.metricId; rule.ranges.push(rg2);
+    closeModal(); renderRules(); return;
+  }
+  const rg=newRange(modalType,values);
+  rg.metricId=rule.metricId;
+  rule.ranges.push(rg);
+  closeModal();
+  renderRules();
+}
+
+// --- Rule / range helpers ---
+function addRule(){const r={id:rid++,metricId:null,ranges:[],confirmedText:null};rules.push(r);activeCondId=r.id;renderRules();}
+function delRule(id){
+  rules=rules.filter(r=>r.id!==id);
+  if(activeCondId===id) activeCondId=rules.length?rules[rules.length-1].id:null;
+  renderRules();
+}
+function addRange(ruleId){
+  const rule=rules.find(r=>r.id===ruleId);
+  if(!rule.metricId){alert('請先選擇評估指標');return;}
+  openModal(ruleId);
+}
+function delRange(ruleId,rangeId){
+  const rule=rules.find(r=>r.id===ruleId);
+  rule.ranges=rule.ranges.filter(rg=>rg.id!==rangeId);
+  renderRules();
+}
+function delAllRanges(ruleId){
+  rules.find(r=>r.id===ruleId).ranges=[];
+  renderRules();
+}
+function setRuleMetric(ruleId,v){
+  const mid=parseInt(v)||null;
+  const rule=rules.find(r=>r.id===ruleId);
+  rule.metricId=mid;
+  rule.ranges.forEach(rg=>rg.metricId=mid);
+  renderRules();
+}
+function setRangeValue(ruleId,rangeId,idx,v){
+  rules.find(r=>r.id===ruleId).ranges.find(rg=>rg.id===rangeId).values[idx]=v;
+  updateSaveBtn();
+}
+function toggleRangeAction(ruleId,rangeId,eid,checked){
+  const rg=rules.find(r=>r.id===ruleId).ranges.find(rg=>rg.id===rangeId);
+  if(checked){if(!rg.exercises.includes(eid))rg.exercises.push(eid);}
+  else{rg.exercises=rg.exercises.filter(a=>a!==eid);}
+  updateSaveBtn();
+}
+function focusCond(ruleId){activeCondId=ruleId;renderRules();}
+
+function rangeBadge(rg){
+  const mName=esc(metrics.find(m=>m.id===rg.metricId)?.name||'');
+  const v0=esc(rg.values[0]||'?');
+  if(rg.type==='range')      return `${v0} &gt;= ${mName} &gt;= ${esc(rg.values[1]||'?')}`;
+  if(rg.type==='single-gte') return `${mName} &gt;= ${v0}`;
+  if(rg.type==='single-lt')  return `${mName} &lt; ${v0}`;
+  return `${mName}: ${rg.values[0]==='1'?'是':'否'}`;
+}
+function svgRangeLabel(rg){
+  const mName=metrics.find(m=>m.id===rg.metricId)?.name||'?';
+  const v0=esc(rg.values[0]||'?');
+  if(rg.type==='range')      return `${v0} >= ${esc(mName)} >= ${esc(rg.values[1]||'?')}`;
+  if(rg.type==='single-gte') return `${esc(mName)} >= ${v0}`;
+  if(rg.type==='single-lt')  return `${esc(mName)} < ${v0}`;
+  return `${esc(mName)}: ${rg.values[0]==='1'?'是':'否'}`;
+}
+
+function renderRules(){
+  const container=document.getElementById('rules');
+  container.innerHTML='';
+
+  // 條件 tags
+  const tagsHtml=rules.map((r,ri)=>{
+    const isActive=r.id===activeCondId;
+    return `<span class="cond-tag${isActive?' active':''}"><span class="cond-tag-label" onclick="focusCond(${r.id})">條件 ${ri+1}</span><button class="cond-tag-del" onclick="delRule(${r.id})" title="刪除條件">×</button></span>`;
+  }).join('');
+  document.getElementById('cond-tags').innerHTML=`<div class="cond-tags-wrap">${tagsHtml}<button class="add-chip-btn" onclick="addRule()">＋ 新增條件</button></div>`;
+
+  // 只渲染 active 條件卡片
+  rules.forEach(r=>{
+    if(r.id!==activeCondId) return;
+    const card=document.createElement('div');
+    card.className='rule-card';
+    card.id=`cond-card-${r.id}`;
+
+    const N=r.ranges.length;
+    const gridCols=`repeat(${N},1fr)`;
+
+    // 第一排：評估指標 + 新增
+    const usedMetricIds=new Set(rules.filter(x=>x.id!==r.id).map(x=>x.metricId).filter(Boolean));
+    const metricOpts0=`<option value="">選擇評估指標...</option>`+
+      metrics.filter(m=>!usedMetricIds.has(m.id)||r.metricId===m.id)
+        .map(m=>`<option value="${m.id}"${r.metricId===m.id?' selected':''}>${esc(m.name)}</option>`).join('');
+    const isSingleType=r.ranges.length>0&&(r.ranges[0].type==='single-gte'||r.ranges[0].type==='single-lt'||r.ranges[0].type==='yesno');
+    const removeBtn=isSingleType?`<button onclick="delAllRanges(${r.id})" style="font-size:12px;padding:4px 10px;border:0.5px solid rgba(226,75,74,0.25);border-radius:8px;background:none;cursor:pointer;color:#E24B4A;font-family:inherit" onmouseover="this.style.background='#FEECEC'" onmouseout="this.style.background='none'">移除</button>`:'';
+    const row1=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <select onchange="setRuleMetric(${r.id},this.value)" style="flex:1;max-width:200px">${metricOpts0}</select>
+      <button class="add-chip-btn" onclick="addRange(${r.id})"${isSingleType?' disabled style="opacity:0.35;cursor:not-allowed"':''}>＋ 新增</button>
+      ${removeBtn}
+    </div>`;
+
+    // 空白提示
+    const emptyHint=N===0?`<div style="text-align:center;color:#bbb;font-size:13px;padding:20px 0">點擊「＋ 新增」來新增條件範圍</div>`:'';
+
+    // 第二排：範圍標籤（含刪除按鈕，single 類型不顯示 ×）
+    const row2=N?`<div style="display:grid;grid-template-columns:${gridCols};gap:8px;margin-bottom:10px">`+
+      r.ranges.map(rg=>{
+        const isSingle=rg.type==='single-gte'||rg.type==='single-lt'||rg.type==='yesno';
+        const delBtn=isSingle?'':
+          `<button onclick="delRange(${r.id},${rg.id})" title="刪除" style="background:none;border:none;cursor:pointer;color:#0F6E56;opacity:0.6;font-size:15px;line-height:1;padding:0;flex-shrink:0;font-family:inherit" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">×</button>`;
+        return `<div class="case-label pros" style="display:flex;align-items:center;gap:6px">
+          <span style="flex:1;text-align:center">${rangeBadge(rg)}</span>${delBtn}
+        </div>`;
+      }).join('')+`</div>`:'';
+
+    // 第三排：動作選單（橫向排列）
+    const row4=N?`<div style="display:grid;grid-template-columns:${gridCols};gap:8px">`+
+      r.ranges.map(rg=>{
+        const checks=exercises.map(e=>
+          `<label><input type="checkbox" value="${e.id}"${rg.exercises.includes(e.id)?' checked':''} onchange="toggleRangeAction(${r.id},${rg.id},${e.id},this.checked)">${e.id}. ${e.name}</label>`
+        ).join('');
+        return `<div class="action-checklist">${checks}</div>`;
+      }).join('')+`</div>`:'';
+
+    card.innerHTML=`<div class="cond-row">${row1}${emptyHint}${row2}${row4}</div>`;
+    container.appendChild(card);
+  });
+  updateSaveBtn();
+}
+
+const ORDINALS=['第一','第二','第三','第四','第五','第六','第七','第八'];
+
+function generate(){
+  if(!rules.length){alert('請先新增至少一條規則');return;}
+  const name=document.getElementById('rule-name-input').value.trim();
+  if(!name){alert('請輸入規則名稱');return;}
+
+  for(let ri=0;ri<rules.length;ri++){
+    const r=rules[ri];
+    const loc=`【${ORDINALS[ri]||'第'+(ri+1)}條件】`;
+    if(!r.ranges.length){alert(`${loc}：請至少新增一個範圍`);return;}
+    for(const rg of r.ranges){
+      if(!rg.metricId){alert(`${loc}：請選擇評估指標`);return;}
+      if(rg.values.some(v=>!String(v).trim())){alert(`${loc}：請完成所有值的填寫`);return;}
+      if(!rg.exercises.length){alert(`${loc}：請至少選擇一個動作`);return;}
+    }
+  }
+
+  document.getElementById('confirm-modal').classList.add('show');
+}
+
+async function doSave(){
+  document.getElementById('confirm-modal').classList.remove('show');
+  const name=document.getElementById('rule-name-input').value.trim();
+  const conditions=[];
+  for(const r of rules){
+    for(const rg of r.ranges){
+      let val;
+      if(rg.type==='single-gte') val=['>=',String(rg.values[0]).trim()];
+      else if(rg.type==='single-lt') val=['<',String(rg.values[0]).trim()];
+      else val=rg.values.map(v=>String(v).trim());
+      conditions.push({metric_id:rg.metricId, exercises:rg.exercises, value:val});
+    }
+  }
+  const json=await api('/rules/',{method:'POST',body:JSON.stringify({name,conditions})});
+  if(!json.result){alert(`儲存失敗：${json.message}`);return;}
+  window.location.href='/';
+}
+
+document.getElementById('new-metric-input').addEventListener('keydown',e=>{if(e.key==='Enter')addMetric();});
+
+function canSave(){
+  if(!rules.length) return false;
+  for(const r of rules){
+    if(!r.ranges.length) return false;
+    for(const rg of r.ranges){
+      if(!rg.metricId||!rg.values.length||rg.values.some(v=>!String(v).trim())||!rg.exercises.length) return false;
+    }
+  }
+  return true;
+}
+
+function updateSaveBtn(){
+  const btn=document.getElementById('save-btn');
+  if(!btn) return;
+  const ok=canSave();
+  btn.disabled=!ok;
+  btn.title=ok?'':'請完成所有條件設定並選擇至少一個動作';
+}
+
+// ── 決策樹 SVG 生成 ──────────────────────────────────────────
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function buildDecisionTreeSVG(){
+  if(!rules.length) return {svg:'<text x="150" y="60" font-size="14" fill="#555" text-anchor="middle">請先新增條件</text>',w:300,h:100};
+
+  const k=rules.length;
+  const Ns=rules.map(r=>r.ranges.length);
+
+  // suffixProduct[lv] = Ns[lv] * Ns[lv+1] * ... * Ns[k-1]
+  const sp=new Array(k+1).fill(1);
+  for(let lv=k-1;lv>=0;lv--) sp[lv]=Ns[lv]*sp[lv+1];
+  const LEAF_COUNT=sp[0];
+
+  const MIN_LEAF_W=180;
+  const SVG_W=Math.max(920, LEAF_COUNT*(MIN_LEAF_W+24)+24);
+  const SLOT=SVG_W/LEAF_COUNT;
+  const LW=Math.min(240,SLOT*0.88);
+  const CH=54, LGAP=90, SH=40, SY=20;
+  const exMap=Object.fromEntries(exercises.map(e=>[e.id,e.name]));
+  const PATH_LABELS='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  function lcx(i){return SLOT*(i+0.5);}
+  // center x of condition node at (lv, col)
+  function nodeCX(lv,col){return(lcx(col*sp[lv])+lcx((col+1)*sp[lv]-1))/2;}
+
+  const condY=[];
+  let y=SY+SH+40;
+  for(let lv=0;lv<k;lv++){condY.push(y);y+=CH+LGAP;}
+  const LY=y;
+
+  let s=`<defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <style>
+    .dth{font-size:13px;font-weight:600;fill:#1a1a1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .dts{font-size:11px;fill:#555;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  </style>
+</defs>`;
+
+  // 起點
+  const sx=SVG_W/2;
+  s+=`<rect x="${sx-150}" y="${SY}" width="300" height="${SH}" rx="8" fill="#f0efeb" stroke="#ccc" stroke-width="0.5"/>
+<text class="dth" x="${sx}" y="${SY+SH/2}" text-anchor="middle" dominant-baseline="central">病患評估資料輸入</text>`;
+
+  const firstCX=nodeCX(0,0);
+  s+=`<path d="M${sx} ${SY+SH} L${sx} ${condY[0]-15} L${firstCX} ${condY[0]-15} L${firstCX} ${condY[0]}" fill="none" stroke="#aaa" stroke-width="0.5" marker-end="url(#arr)"/>`;
+
+  // 條件節點 & 分支
+  for(let lv=0;lv<k;lv++){
+    const N=Ns[lv];
+    const prefixCount=LEAF_COUNT/sp[lv]; // number of nodes at this level
+    const rule=rules[lv];
+
+    for(let col=0;col<prefixCount;col++){
+      const cx=nodeCX(lv,col);
+      const cy=condY[lv];
+      const nw=Math.min(340, sp[lv]*SLOT-16);
+
+      // 收集此條件的指標名稱（通常只有一個 metric，顯示第一個）
+      const mNames=[...new Set(rule.ranges.map(rg=>metrics.find(m=>m.id===rg.metricId)?.name||'?'))].join(', ');
+      s+=`<rect x="${cx-nw/2}" y="${cy}" width="${nw}" height="${CH}" rx="8" fill="#EBF4FD" stroke="#90C3F0" stroke-width="0.5"/>
+<text class="dth" x="${cx}" y="${cy+18}" text-anchor="middle" dominant-baseline="central">條件 ${lv+1}</text>
+<text class="dts" x="${cx}" y="${cy+38}" text-anchor="middle" dominant-baseline="central">${esc(mNames)}</text>`;
+
+      // 每個 range 畫一條分支
+      const isLast=lv===k-1;
+      const nextY=isLast?LY:condY[lv+1];
+      const midY=cy+CH+(nextY-cy-CH)*0.42;
+
+      for(let ri=0;ri<N;ri++){
+        const rg=rule.ranges[ri];
+        const childCol=col*N+ri;
+        const childCX=isLast?lcx(childCol):nodeCX(lv+1,childCol);
+
+        // 起始 x：均勻分布在父節點底部
+        const startX=cx-nw/2+(ri+0.5)*nw/N;
+
+        const label=svgRangeLabel(rg);
+
+        s+=`<path d="M${startX} ${cy+CH} L${startX} ${midY} L${childCX} ${midY} L${childCX} ${nextY}" fill="none" stroke="#1D9E75" stroke-width="0.5" marker-end="url(#arr)"/>`;
+        s+=`<text class="dts" x="${(startX+childCX)/2}" y="${midY-5}" text-anchor="middle" fill="#1D9E75">${label}</text>`;
+      }
+    }
+  }
+
+  // 葉節點
+  let maxLeafH=0;
+  for(let i=0;i<LEAF_COUNT;i++){
+    const condLines=[];
+    let inter=null;
+    for(let lv=0;lv<k;lv++){
+      const ri=Math.floor(i/sp[lv+1])%Ns[lv];
+      const rg=rules[lv].ranges[ri];
+      condLines.push(svgRangeLabel(rg));
+      const exSet=new Set(rg.exercises);
+      if(inter===null){inter=exSet;}
+      else{inter=new Set([...inter].filter(id=>exSet.has(id)));}
+    }
+    const exNames=[...(inter||new Set())].map(id=>exMap[id]||`動作${id}`);
+    const SUMH=26+k*14;
+    const EXH=18+exNames.length*14+4;
+    maxLeafH=Math.max(maxLeafH,SUMH+8+EXH);
+
+    const lx=lcx(i);
+    s+=`<rect x="${lx-LW/2}" y="${LY}" width="${LW}" height="${SUMH}" rx="8" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
+<text class="dth" x="${lx}" y="${LY+14}" text-anchor="middle" dominant-baseline="central">路徑 ${PATH_LABELS[i]||i+1}</text>
+${condLines.map((l,ci)=>`<text class="dts" x="${lx}" y="${LY+26+ci*14}" text-anchor="middle" dominant-baseline="central">${esc(l)}</text>`).join('')}`;
+
+    const exY=LY+SUMH+8;
+    s+=`<rect x="${lx-LW/2}" y="${exY}" width="${LW}" height="${EXH}" rx="6" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
+<text class="dts" x="${lx}" y="${exY+12}" text-anchor="middle" fill="#0F6E56" font-weight="600">推薦動作</text>
+${exNames.map((n,ei)=>`<text class="dts" x="${lx}" y="${exY+26+ei*14}" text-anchor="middle" fill="#0F6E56">${esc(n)}</text>`).join('')}`;
+  }
+
+  return {svg:s, w:SVG_W, h:LY+maxLeafH+24};
+}
+
+function showDecisionTree(){
+  if(!rules.length){alert('請先新增條件');return;}
+  const {svg,w,h}=buildDecisionTreeSVG();
+  document.getElementById('tree-svg-container').innerHTML=
+    `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${svg}</svg>`;
+  document.getElementById('tree-modal').style.display='flex';
+}
+
+loadAll();
+</script>
+</body>
+</html>
