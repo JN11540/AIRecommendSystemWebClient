@@ -162,8 +162,10 @@ let rules = [];
 let metrics = [], exercises = [];
 let selectedId = null;
 
+const API = 'https://airecommendsystem-production.up.railway.app'
+
 async function api(url) {
-  const res = await fetch(url);
+  const res = await fetch(`${API}${url}`);
   return res.json();
 }
 
@@ -398,7 +400,7 @@ function renderDetail(rule) {
 async function deleteRule(e, id) {
   e.stopPropagation();
   if (!confirm('確定刪除此規則？')) return;
-  const res = await fetch(`/rules/${id}`, { method: 'DELETE' });
+  const res = await fetch(`${API}/rules/${id}`, { method: 'DELETE' });
   const json = await res.json();
   if (!json.result) { showToast('刪除失敗'); return; }
   rules = rules.filter(r => r.id !== id);
@@ -424,7 +426,7 @@ async function loadPatientRec(ruleId) {
 
   const sortedMetrics = [...metrics].sort((a, b) => a.id - b.id);
 
-  const pJson = await fetch('/patients/').then(r => r.json());
+  const pJson = await fetch(`${API}/patients/`).then(r => r.json());
   const patients = pJson.data || [];
   if (!patients.length) {
     panel.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;padding:40px 0">尚無個案</div>';
@@ -433,7 +435,7 @@ async function loadPatientRec(ruleId) {
 
   // 並行取得每個個案的推薦結果
   const recResults = await Promise.all(patients.map(p =>
-    fetch('/rules/recommend', {
+    fetch(`${API}/rules/recommend`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rule_id: ruleId, patient_id: p.id }),
@@ -540,7 +542,7 @@ async function submitAddPatient() {
     }
     metric_values.push(ynVal !== null ? ynVal : numVal);
   }
-  const res = await fetch('/patients/', {
+  const res = await fetch(`${API}/patients/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, metric_values }),
@@ -555,7 +557,7 @@ async function openPatientListModal() {
   document.getElementById('patient-list-modal').classList.add('show');
   const content = document.getElementById('patient-list-content');
   content.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;padding:20px 0">載入中…</div>';
-  const json = await fetch('/patients/').then(r => r.json());
+  const json = await fetch(`${API}/patients/`).then(r => r.json());
   if (!json.result) {
     content.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;padding:20px 0">載入失敗</div>';
     return;
@@ -588,7 +590,7 @@ let editPatientId = null;
 let editPatientYesNo = [];
 
 async function openEditPatient(id) {
-  const json = await fetch(`/patients/${id}`).then(r => r.json());
+  const json = await fetch(`${API}/patients/${id}`).then(r => r.json());
   if (!json.result) { alert('載入失敗'); return; }
   const p = json.data;
   editPatientId = id;
@@ -658,7 +660,7 @@ async function submitEditPatient() {
     }
     metric_values.push(ynVal !== null ? ynVal : numVal);
   }
-  const res = await fetch(`/patients/${editPatientId}`, {
+  const res = await fetch(`${API}/patients/${editPatientId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, metric_values }),
@@ -672,7 +674,7 @@ async function submitEditPatient() {
 
 async function deletePatient(id) {
   if (!confirm('確定刪除此個案？')) return;
-  const res = await fetch(`/patients/${id}`, { method: 'DELETE' });
+  const res = await fetch(`${API}/patients/${id}`, { method: 'DELETE' });
   const json = await res.json();
   if (!json.result) { showToast('刪除失敗'); return; }
   showToast('個案已刪除');

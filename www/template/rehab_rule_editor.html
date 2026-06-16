@@ -222,8 +222,10 @@ function newRange(type,values){return{id:rangeIdCnt++,metricId:null,type,values,
 
 
 // --- API helper ---
+const API = 'https://airecommendsystem-production.up.railway.app'
+
 async function api(path,opts={}){
-  const res=await fetch(path,{headers:{'Content-Type':'application/json'},...opts});
+  const res=await fetch(`${API}${path}`,{headers:{'Content-Type':'application/json'},...opts});
   return res.json();
 }
 
