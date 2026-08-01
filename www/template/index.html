@@ -229,7 +229,21 @@ async function selectRule(id) {
   renderDetail(json.data);
 }
 
-function buildTreeSVG(groups) {
+function wrapText(text, maxChars, maxLines) {
+  maxLines = maxLines || 4;
+  const lines = [];
+  let s = String(text || '');
+  while (s.length > maxChars && lines.length < maxLines - 1) {
+    lines.push(s.slice(0, maxChars));
+    s = s.slice(maxChars);
+  }
+  if (s.length > maxChars) lines.push(s.slice(0, maxChars - 1) + '…');
+  else if (s.length) lines.push(s);
+  return lines;
+}
+
+function buildTreeSVG(groups, comments) {
+  comments = comments || [];
   const k = groups.length;
   if (!k) return {svg:'', w:0, h:0};
 
@@ -305,10 +319,12 @@ function buildTreeSVG(groups) {
   let maxLeafH = 0;
   for (let i = 0; i < LEAF_COUNT; i++) {
     const condLines = [];
+    const pathIds = [];
     let inter = null;
     for (let lv = 0; lv < k; lv++) {
       const ri = Math.floor(i / sp[lv+1]) % Ns[lv];
       const cond = groups[lv][ri];
+      pathIds.push(cond.id);
       const mName = byId(metrics, cond.metric_id)?.name || `指標${cond.metric_id}`;
       condLines.push(condLabel(cond, mName, groups[lv]));
       const exSet = new Set(cond.exercises || []);
@@ -317,7 +333,17 @@ function buildTreeSVG(groups) {
     const exNames = [...(inter || new Set())].map(id => exMap[id] || `動作${id}`);
     const SUMH = 26 + k * 14;
     const EXH = 18 + exNames.length * 14 + 4;
-    maxLeafH = Math.max(maxLeafH, SUMH + 8 + EXH);
+
+    // 精確比對：這個葉節點路徑上的 condition id 集合，要跟 comment.conditions 完全相同
+    const sortedPathIds = [...pathIds].sort((a,b) => a-b);
+    const matched = comments.find(c => {
+      const cs = [...(c.conditions||[])].sort((a,b) => a-b);
+      return cs.length === sortedPathIds.length && cs.every((v,idx) => v === sortedPathIds[idx]);
+    });
+    const commentLines = matched ? wrapText(matched.comment_content, 14) : [];
+    const CMH = commentLines.length ? (18 + commentLines.length * 14 + 4) : 0;
+
+    maxLeafH = Math.max(maxLeafH, SUMH + 8 + EXH + (CMH ? 8 + CMH : 0));
 
     const lx = lcx(i);
     s += `<rect x="${lx-LW/2}" y="${LY}" width="${LW}" height="${SUMH}" rx="8" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
@@ -328,6 +354,13 @@ ${condLines.map((l,ci) => `<text class="dts" x="${lx}" y="${LY+26+ci*14}" text-a
     s += `<rect x="${lx-LW/2}" y="${exY}" width="${LW}" height="${EXH}" rx="6" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
 <text class="dts" x="${lx}" y="${exY+12}" text-anchor="middle" fill="#0F6E56" font-weight="600">推薦動作</text>
 ${exNames.map((n,ei) => `<text class="dts" x="${lx}" y="${exY+26+ei*14}" text-anchor="middle" fill="#0F6E56">${esc(n)}</text>`).join('')}`;
+
+    if (commentLines.length) {
+      const cmY = exY + EXH + 8;
+      s += `<rect x="${lx-LW/2}" y="${cmY}" width="${LW}" height="${CMH}" rx="6" fill="#FFF8E1" stroke="#F0D98C" stroke-width="0.5"/>
+<text class="dts" x="${lx}" y="${cmY+12}" text-anchor="middle" fill="#8A6D1D" font-weight="600">備註</text>
+${commentLines.map((l,li) => `<text class="dts" x="${lx}" y="${cmY+26+li*14}" text-anchor="middle" dominant-baseline="central" fill="#8A6D1D">${esc(l)}</text>`).join('')}`;
+    }
   }
 
   return {svg:s, w:SVG_W, h:LY+maxLeafH+24};
@@ -374,7 +407,7 @@ function renderDetail(rule) {
     `;
   }).join('') : '<div style="color:#bbb;font-size:13px">此規則尚無條件</div>';
 
-  const {svg, w, h} = buildTreeSVG(groups);
+  const {svg, w, h} = buildTreeSVG(groups, rule.comments);
   const treePanel = svg
     ? `<div style="overflow-x:auto;background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:12px;padding:16px">
         <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${svg}</svg>
@@ -390,6 +423,7 @@ function renderDetail(rule) {
       <button class="detail-tab active" onclick="switchTab('tree')">決策樹</button>
       <button class="detail-tab" onclick="switchTab('conds')">條件列表</button>
       <button class="detail-tab" onclick="switchTab('patients',${rule.id})">個案推薦動作</button>
+      <button class="detail-tab" onclick="location.href='/editor?id=${rule.id}'">編輯規則</button>
     </div>
     <div class="detail-panel active" id="panel-tree">${treePanel}</div>
     <div class="detail-panel" id="panel-conds">${condsHtml}</div>

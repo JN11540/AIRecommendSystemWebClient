@@ -208,6 +208,18 @@ input[type=text]{width:72px}
   </div>
 </div>
 
+<!-- ── 葉節點備註 Modal ── -->
+<div class="modal-overlay" id="leaf-comment-modal" style="z-index:1100">
+  <div class="modal-box" style="width:400px">
+    <div class="modal-title">葉節點備註</div>
+    <textarea id="leaf-comment-input" class="modal-input" style="width:100%;min-height:100px;resize:vertical" placeholder="輸入這條路徑的備註...留空並確定則會移除備註"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button onclick="closeLeafCommentModal()" style="padding:8px 16px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.15);background:none;cursor:pointer;font-size:13px;color:#555;font-family:inherit">取消</button>
+      <button onclick="confirmLeafComment()" style="padding:8px 16px;border-radius:8px;border:none;background:#185FA5;color:#fff;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit">確定</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // [{id, name}, ...]  — loaded from API
 let exercises=[];
@@ -215,10 +227,77 @@ let metrics=[];
 let rules=[];
 let rid=1,cidCounter=1;
 let activeCondId=null;
+let editingRuleId=null;
 
 let rangeIdCnt=1;
 let modalRuleId=null, modalType=null, modalYesNo=null;
-function newRange(type,values){return{id:rangeIdCnt++,metricId:null,type,values,exercises:[]};}
+function newRange(type,values){return{id:rangeIdCnt++,serverId:null,metricId:null,type,values,exercises:[]};}
+
+// --- 葉節點備註 ---
+let ruleComments=[];   // 既有規則從 GET /rules/{id} 帶回的 comments（Part 2）
+let leafComments={};   // key(leafKey) -> {text, commentId}
+let currentLeafKey=null;
+
+function leafKey(comboRanges){
+  return comboRanges.map(rg=>rg.id).slice().sort((a,b)=>a-b).join('|');
+}
+function wrapText(text,maxChars,maxLines){
+  maxLines=maxLines||4;
+  const lines=[];
+  let s=String(text||'');
+  while(s.length>maxChars && lines.length<maxLines-1){
+    lines.push(s.slice(0,maxChars));
+    s=s.slice(maxChars);
+  }
+  if(s.length>maxChars) lines.push(s.slice(0,maxChars-1)+'…');
+  else if(s.length) lines.push(s);
+  return lines;
+}
+function sameConditionContent(sent,recv){
+  if(sent.metric_id!==recv.metric_id) return false;
+  const se=[...sent.exercises].sort((a,b)=>a-b);
+  const re=[...recv.exercises].sort((a,b)=>a-b);
+  if(se.length!==re.length||se.some((v,i)=>v!==re[i])) return false;
+  if(sent.value.length!==recv.value.length) return false;
+  if(sent.value.some((v,i)=>v!==recv.value[i])) return false;
+  return true;
+}
+function enumerateLeaves(){
+  if(!rules.length) return [];
+  const k=rules.length;
+  const Ns=rules.map(r=>r.ranges.length);
+  if(Ns.some(n=>n===0)) return [];
+  const sp=new Array(k+1).fill(1);
+  for(let lv=k-1;lv>=0;lv--) sp[lv]=Ns[lv]*sp[lv+1];
+  const LEAF_COUNT=sp[0];
+  const leaves=[];
+  for(let i=0;i<LEAF_COUNT;i++){
+    const comboRanges=[];
+    for(let lv=0;lv<k;lv++){
+      const ri=Math.floor(i/sp[lv+1])%Ns[lv];
+      comboRanges.push(rules[lv].ranges[ri]);
+    }
+    leaves.push({key:leafKey(comboRanges),comboRanges});
+  }
+  return leaves;
+}
+function openLeafCommentModal(key){
+  currentLeafKey=key;
+  const entry=leafComments[key]||{text:'',commentId:null};
+  document.getElementById('leaf-comment-input').value=entry.text||'';
+  document.getElementById('leaf-comment-modal').classList.add('show');
+}
+function closeLeafCommentModal(){
+  document.getElementById('leaf-comment-modal').classList.remove('show');
+  currentLeafKey=null;
+}
+function confirmLeafComment(){
+  const text=document.getElementById('leaf-comment-input').value.trim();
+  const entry=leafComments[currentLeafKey]||{text:'',commentId:null};
+  leafComments[currentLeafKey]={text,commentId:entry.commentId};
+  closeLeafCommentModal();
+  showDecisionTree();
+}
 
 
 // --- API helper ---
@@ -236,7 +315,54 @@ async function loadAll(){
   if(mRes.result) metrics=mRes.data;
   renderChips();
   renderExercises();
-  addRule();
+
+  const ruleId=new URLSearchParams(location.search).get('id');
+  if(ruleId){
+    await loadExistingRule(ruleId);
+  } else {
+    addRule();
+  }
+}
+
+// --- Load existing rule for editing ---
+async function loadExistingRule(ruleId){
+  const json=await api(`/rules/${ruleId}`);
+  if(!json.result||!json.data){alert('載入規則失敗');addRule();return;}
+  const rule=json.data;
+  editingRuleId=rule.id;
+  ruleComments=rule.comments||[];
+  document.getElementById('rule-name-input').value=rule.name;
+
+  const groupMap=new Map();
+  for(const c of (rule.conditions||[])){
+    if(!groupMap.has(c.metric_id)) groupMap.set(c.metric_id,[]);
+    groupMap.get(c.metric_id).push(c);
+  }
+  const groups=[...groupMap.values()]
+    .map(g=>g.sort((a,b)=>a.id-b.id))
+    .sort((a,b)=>a[0].id-b[0].id);
+
+  rules=groups.map(g=>{
+    const metricId=g[0].metric_id;
+    const ranges=g.map(c=>{
+      const v=c.value;
+      let type,values;
+      if(v.length===2&&v[0]==='>='){type='single-gte';values=[v[1]];}
+      else if(v.length===2&&v[0]==='<'){type='single-lt';values=[v[1]];}
+      else if(v.length===1&&(v[0]==='1'||v[0]==='0')){type='yesno';values=[v[0]];}
+      else{type='range';values=[v[0],v[1]];}
+      const rg=newRange(type,values);
+      rg.serverId=c.id;
+      rg.metricId=metricId;
+      rg.exercises=c.exercises||[];
+      return rg;
+    });
+    return{id:rid++,metricId,ranges,confirmedText:null};
+  });
+
+  if(!rules.length) addRule();
+  else activeCondId=rules[0].id;
+  renderRules();
 }
 
 function renderExercises(){
@@ -486,17 +612,57 @@ async function doSave(){
   document.getElementById('confirm-modal').classList.remove('show');
   const name=document.getElementById('rule-name-input').value.trim();
   const conditions=[];
+  const payloadRanges=[];
   for(const r of rules){
     for(const rg of r.ranges){
       let val;
       if(rg.type==='single-gte') val=['>=',String(rg.values[0]).trim()];
       else if(rg.type==='single-lt') val=['<',String(rg.values[0]).trim()];
       else val=rg.values.map(v=>String(v).trim());
-      conditions.push({metric_id:rg.metricId, exercises:rg.exercises, value:val});
+      conditions.push({id:rg.serverId??null, metric_id:rg.metricId, exercises:rg.exercises, value:val});
+      payloadRanges.push(rg);
     }
   }
-  const json=await api('/rules/',{method:'POST',body:JSON.stringify({name,conditions})});
+  const json=editingRuleId
+    ?await api(`/rules/${editingRuleId}`,{method:'PUT',body:JSON.stringify({name,conditions})})
+    :await api('/rules/',{method:'POST',body:JSON.stringify({name,conditions})});
   if(!json.result){alert(`儲存失敗：${json.message}`);return;}
+
+  // --- 把剛存檔拿到的真正 condition id 寫回 range.serverId ---
+  // 已經有 serverId 的 range，Part 1 的差異更新保證 id 不變，不用比對；
+  // 只有存檔前 serverId 是 null（真正新增）的 range，才需要用內容比對回應找出真正 id。
+  const respConds=(json.data.conditions||[]).slice();
+  const knownIds=new Set(payloadRanges.filter(rg=>rg.serverId!=null).map(rg=>rg.serverId));
+  let pool=respConds.filter(c=>!knownIds.has(c.id));
+  for(let idx=0;idx<conditions.length;idx++){
+    const rg=payloadRanges[idx];
+    if(rg.serverId!=null) continue;
+    const matchIdx=pool.findIndex(c=>sameConditionContent(conditions[idx],c));
+    if(matchIdx>=0){ rg.serverId=pool[matchIdx].id; pool.splice(matchIdx,1); }
+  }
+
+  // --- 依目前 rules[] 結構列舉現存的葉節點，把暫存的備註建立/更新/刪除 ---
+  let anyFail=false;
+  for(const {key,comboRanges} of enumerateLeaves()){
+    const entry=leafComments[key];
+    if(!entry) continue;
+    if(!comboRanges.every(rg=>rg.serverId!=null)) continue;
+    const realIds=comboRanges.map(rg=>rg.serverId).sort((a,b)=>a-b);
+    if(entry.text){
+      const body=JSON.stringify({conditions:realIds,comment_content:entry.text});
+      const cjson=entry.commentId
+        ?await api(`/comments/${entry.commentId}`,{method:'PUT',body})
+        :await api('/comments/',{method:'POST',body});
+      if(!cjson.result) anyFail=true;
+      else if(!entry.commentId) entry.commentId=cjson.data.id;
+    } else if(entry.commentId){
+      const cjson=await api(`/comments/${entry.commentId}`,{method:'DELETE'});
+      if(!cjson.result) anyFail=true;
+      else entry.commentId=null;
+    }
+  }
+  if(anyFail){alert('規則已儲存，但部分備註儲存失敗，請重試');return;}
+
   window.location.href='/';
 }
 
@@ -612,10 +778,12 @@ function buildDecisionTreeSVG(){
   let maxLeafH=0;
   for(let i=0;i<LEAF_COUNT;i++){
     const condLines=[];
+    const comboRanges=[];
     let inter=null;
     for(let lv=0;lv<k;lv++){
       const ri=Math.floor(i/sp[lv+1])%Ns[lv];
       const rg=rules[lv].ranges[ri];
+      comboRanges.push(rg);
       condLines.push(svgRangeLabel(rg));
       const exSet=new Set(rg.exercises);
       if(inter===null){inter=exSet;}
@@ -624,7 +792,25 @@ function buildDecisionTreeSVG(){
     const exNames=[...(inter||new Set())].map(id=>exMap[id]||`動作${id}`);
     const SUMH=26+k*14;
     const EXH=18+exNames.length*14+4;
-    maxLeafH=Math.max(maxLeafH,SUMH+8+EXH);
+
+    // 找出（或第一次載入時，用真正 id 精確比對既有 comment）這個葉節點目前暫存的備註
+    const key=leafKey(comboRanges);
+    if(!(key in leafComments)){
+      let found=null;
+      if(comboRanges.every(rg=>rg.serverId!=null)){
+        const realIds=comboRanges.map(rg=>rg.serverId).sort((a,b)=>a-b);
+        found=ruleComments.find(c=>{
+          const cs=[...(c.conditions||[])].sort((a,b)=>a-b);
+          return cs.length===realIds.length && cs.every((v,idx)=>v===realIds[idx]);
+        });
+      }
+      leafComments[key]=found?{text:found.comment_content,commentId:found.id}:{text:'',commentId:null};
+    }
+    const entry=leafComments[key];
+    const hasText=!!entry.text;
+    const commentLines=hasText?wrapText(entry.text,14):['點擊新增備註'];
+    const CMH=18+commentLines.length*14+4;
+    maxLeafH=Math.max(maxLeafH,SUMH+8+EXH+8+CMH);
 
     const lx=lcx(i);
     s+=`<rect x="${lx-LW/2}" y="${LY}" width="${LW}" height="${SUMH}" rx="8" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
@@ -635,6 +821,14 @@ ${condLines.map((l,ci)=>`<text class="dts" x="${lx}" y="${LY+26+ci*14}" text-anc
     s+=`<rect x="${lx-LW/2}" y="${exY}" width="${LW}" height="${EXH}" rx="6" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
 <text class="dts" x="${lx}" y="${exY+12}" text-anchor="middle" fill="#0F6E56" font-weight="600">推薦動作</text>
 ${exNames.map((n,ei)=>`<text class="dts" x="${lx}" y="${exY+26+ei*14}" text-anchor="middle" fill="#0F6E56">${esc(n)}</text>`).join('')}`;
+
+    const cmY=exY+EXH+8;
+    const cmFill=hasText?'#FFF8E1':'#FAFAF9';
+    const cmStroke=hasText?'#F0D98C':'rgba(0,0,0,0.15)';
+    const cmTextColor=hasText?'#8A6D1D':'#999';
+    s+=`<rect x="${lx-LW/2}" y="${cmY}" width="${LW}" height="${CMH}" rx="6" fill="${cmFill}" stroke="${cmStroke}" stroke-width="0.5" style="cursor:pointer" onclick="openLeafCommentModal('${key}')"/>
+<text class="dts" x="${lx}" y="${cmY+12}" text-anchor="middle" fill="${cmTextColor}" font-weight="600" style="cursor:pointer" onclick="openLeafCommentModal('${key}')">備註</text>
+${commentLines.map((l,li)=>`<text class="dts" x="${lx}" y="${cmY+26+li*14}" text-anchor="middle" dominant-baseline="central" fill="${cmTextColor}" style="cursor:pointer" onclick="openLeafCommentModal('${key}')">${esc(l)}</text>`).join('')}`;
   }
 
   return {svg:s, w:SVG_W, h:LY+maxLeafH+24};
